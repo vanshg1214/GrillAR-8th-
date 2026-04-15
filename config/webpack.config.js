@@ -58,12 +58,25 @@ const makeDefaultHtmlLoader = () => ({
             tag: 'script',
             attribute: 'src',
             type: 'src',
-            filter: () => false,
+            filter: (tag, attribute, attributes, resourcePath) => {
+              // Ignore files in the external folder; they are handled by CopyWebpackPlugin
+              if (attributes.src && attributes.src.startsWith('./external/')) {
+                return false
+              }
+              return true
+            },
           },
           ...ATTRIBUTES_TO_EXPAND.map(attr => ({
             tag: '*',
             attribute: attr,
             type: 'src',
+            filter: (tag, attribute, attributes, resourcePath) => {
+              const value = attributes[attribute]
+              if (value && (value.startsWith('./external/') || value.startsWith('external/'))) {
+                return false
+              }
+              return true
+            },
           })),
         ],
       },
