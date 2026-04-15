@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>GrillAR: American Outdoor Grill</title>
+  <meta itemprop="name" content="GrillAR: American Outdoor Grill">
+  <meta name="description" content="Click to place the American Outdoor Grill in AR.">
+  <script crossorigin="anonymous" src="./external/scripts/8frame-1.5.0.min.js"></script>
+  <script crossorigin="anonymous" src="./external/xrextras/xrextras.js"></script>
+  <script crossorigin="anonymous" src="./external/landing-page/landing-page.js"></script>
+  <script crossorigin="anonymous" src="./external/xr/xr.js" async="true" data-preload-chunks="slam"></script>
+
+  <meta name="8thwall:renderer" content="aframe:1.5.0"/>
+  <meta name="8thwall:package" content="@8thwall.xrextras"/>
+  <meta name="8thwall:package" content="@8thwall.landing-page"/>
+</head>
+
+<body>
+  <script src="bundle.js"></script>
+
+  <div class="over">
+    <span id="promptText">Tap To Place Grill</span>
+  </div>
+
+  <!-- Simplified UI: removed filter tray -->
+
+  <a-scene
+    xrextras-gesture-detector
+    tap-place
+    landing-page
+    xrextras-loading
+    xrextras-runtime-error
+    xrextras-realtime-occlusion
+    renderer="colorManagement:true"
+    xrweb="
+      allowedDevices: any;
+      enableDepth: true;
+      defaultEnvironmentFogIntensity: 0.5; 
+      defaultEnvironmentFloorTexture: #groundTex; 
+      defaultEnvironmentFloorColor: #FFF;
+      defaultEnvironmentSkyBottomColor: #B4C4CC; 
+      defaultEnvironmentSkyTopColor: #5ac8fa;
+      defaultEnvironmentSkyGradientStrength: 0.5;">
+
+    <a-assets>
+      <img id="groundTex" src="assets/sand.jpg">
+      <a-asset-item id="grillModel" src="assets/American outdoor grill.glb"></a-asset-item>
+    </a-assets>
+
+    <a-camera
+      id="camera"
+      position="0 8 8"
+      raycaster="objects: .cantap"
+      cursor="
+        fuse: false;
+        rayOrigin: mouse;">
+    </a-camera>
+
+    <a-entity
+      light="
+        type: directional;
+        intensity: 0.8;
+        castShadow: true;
+        shadowMapHeight:2048;
+        shadowMapWidth:2048;
+        shadowCameraTop: 40;
+        shadowCameraBottom: -40;
+        shadowCameraRight: 40;
+        shadowCameraLeft: -40;
+        target: #camera"
+      xrextras-attach="target: camera; offset: 8 15 4"
+      position="1 4.3 2.5"
+      shadow>
+    </a-entity>
+
+    <a-light type="ambient" intensity="0.5"></a-light>
+
+    <a-box
+      id="ground"
+      class="cantap"
+      scale="1000 2 1000"
+      position="0 -0.99 0"
+      material="shader: shadow; transparent: true; opacity: 0.4"
+      shadow>
+    </a-box>
+  </a-scene>
+</body>
+</html>
