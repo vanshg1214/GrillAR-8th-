@@ -63,7 +63,7 @@ export const tapPlaceComponent = {
     newElement.setAttribute('scale',    '0.0001 0.0001 0.0001')
     newElement.classList.add('cantap')
 
-    const finalScale  = 5.0625 // Matching the default max/min from schema
+    const finalScale  = 25.3125 // Increased from 5.0625 (5x larger)
 
     // Child holds the GLTF model
     const modelChild = document.createElement('a-entity')
@@ -207,7 +207,7 @@ export const tapPlaceComponent = {
       
       // Safety limits: prevent model from disappearing or getting too large
       const minS = 0.5
-      const maxS = 20.0
+      const maxS = 100.0
       
       if (newScale > minS && newScale < maxS) {
         entity.object3D.scale.multiplyScalar(dSpread)
