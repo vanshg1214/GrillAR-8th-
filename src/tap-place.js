@@ -63,7 +63,7 @@ export const tapPlaceComponent = {
     newElement.setAttribute('scale',    '0.0001 0.0001 0.0001')
     newElement.classList.add('cantap')
 
-    const finalScale  = 25.3125 // Increased from 5.0625 (5x larger)
+    const finalScale  = 12.65625 // Set to 2.5x of initial size (12.65625)
 
     // Child holds the GLTF model
     const modelChild = document.createElement('a-entity')
