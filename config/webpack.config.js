@@ -52,31 +52,26 @@ const makeDefaultHtmlLoader = () => ({
     options: {
       esModule: false,
       sources: {
+        // Global URL filter: skip anything pointing into the external/ directory.
+        // These files are copied verbatim by CopyWebpackPlugin and must NOT be bundled.
+        urlFilter: (attribute, value) => {
+          if (/external[/\\]/.test(value)) {
+            return false
+          }
+          return true
+        },
         list: [
           '...',
           {
             tag: 'script',
             attribute: 'src',
             type: 'src',
-            filter: (tag, attribute, attributes, resourcePath) => {
-              // Ignore files in the external folder; they are handled by CopyWebpackPlugin
-              if (attributes.src && attributes.src.startsWith('./external/')) {
-                return false
-              }
-              return true
-            },
+            filter: () => false,   // Never bundle <script src> — they are static or injected
           },
           ...ATTRIBUTES_TO_EXPAND.map(attr => ({
             tag: '*',
             attribute: attr,
             type: 'src',
-            filter: (tag, attribute, attributes, resourcePath) => {
-              const value = attributes[attribute]
-              if (value && (value.startsWith('./external/') || value.startsWith('external/'))) {
-                return false
-              }
-              return true
-            },
           })),
         ],
       },
