@@ -148,7 +148,7 @@ function parseHDR(buffer) {
 AFRAME.registerComponent('premium-materials', {
   schema: {
     hdr:      {type: 'string', default: ''},
-    exposure: {type: 'number', default: 1.2},
+    exposure: {type: 'number', default: 1.35},
   },
 
   init() {
@@ -265,18 +265,18 @@ AFRAME.registerComponent('premium-materials', {
       const materials = Array.isArray(mat) ? mat : [mat]
       materials.forEach((m) => {
         if (m.isMeshStandardMaterial || m.isMeshPhysicalMaterial) {
-          // Stainless steel look: metallic but with realistic brushed roughness
+          // Premium stainless steel: polished but not mirror
           if (m.metalness > 0.3) {
-            m.metalness = Math.min(m.metalness * 1.05, 0.95)
-            // Keep roughness moderate — stainless steel is NOT a mirror
-            m.roughness = Math.max(m.roughness * 0.8, 0.25)
+            m.metalness = Math.min(m.metalness * 1.1, 0.98)
+            // Polished steel roughness — shows clear reflections with slight diffusion
+            m.roughness = Math.max(m.roughness * 0.6, 0.15)
           } else {
-            // Non-metal parts: subtle improvement only
-            m.roughness = Math.max(m.roughness * 0.85, 0.3)
+            // Non-metal parts: slightly improved
+            m.roughness = Math.max(m.roughness * 0.8, 0.25)
           }
 
-          // Moderate environment map intensity — realistic, not flashy
-          m.envMapIntensity = 1.0
+          // Environment reflections: premium but not overwhelming
+          m.envMapIntensity = 1.6
 
           // Apply the environment map if available
           if (this._envMap) {
