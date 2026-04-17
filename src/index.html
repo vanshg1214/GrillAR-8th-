@@ -34,13 +34,12 @@
     xrextras-loading
     xrextras-runtime-error
     xrextras-realtime-occlusion
-    xrextras-pbr-lighting="hdr: #hdr"
-    reflection="directionalLight: #dirlight"
-    renderer="colorManagement:true"
+    premium-materials="hdr: assets/san_giuseppe_bridge_1k.hdr; exposure: 1.2"
+    renderer="colorManagement:true; physicallyCorrectLights: true"
     xrweb="
       allowedDevices: any;
       enableDepth: true;
-      defaultEnvironmentFogIntensity: 0.5; 
+      defaultEnvironmentFogIntensity: 0.3; 
       defaultEnvironmentFloorTexture: #groundTex; 
       defaultEnvironmentFloorColor: #FFF;
       defaultEnvironmentSkyBottomColor: #B4C4CC; 
@@ -62,14 +61,16 @@
         rayOrigin: mouse;">
     </a-camera>
 
+    <!-- Main directional light (sun) — high intensity for steel highlights -->
     <a-entity
       id="dirlight"
       light="
         type: directional;
-        intensity: 0.8;
+        intensity: 1.2;
+        color: #FFF8F0;
         castShadow: true;
-        shadowMapHeight:2048;
-        shadowMapWidth:2048;
+        shadowMapHeight: 4096;
+        shadowMapWidth: 4096;
         shadowCameraTop: 40;
         shadowCameraBottom: -40;
         shadowCameraRight: 40;
@@ -80,7 +81,26 @@
       shadow>
     </a-entity>
 
-    <a-light type="ambient" intensity="0.5"></a-light>
+    <!-- Secondary fill light from opposite side to reduce harsh shadows -->
+    <a-entity
+      light="
+        type: directional;
+        intensity: 0.4;
+        color: #E0E8FF;
+        castShadow: false"
+      position="-5 6 -3">
+    </a-entity>
+
+    <!-- Hemisphere light for natural outdoor-style ambient -->
+    <a-light
+      type="hemisphere"
+      color="#87CEEB"
+      groundColor="#F5E6D3"
+      intensity="0.6">
+    </a-light>
+
+    <!-- Soft ambient fill -->
+    <a-light type="ambient" intensity="0.3" color="#FFFFFF"></a-light>
 
     <a-box
       id="ground"
