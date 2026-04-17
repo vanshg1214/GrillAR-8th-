@@ -8,8 +8,8 @@
 
 export const tapPlaceComponent = {
   schema: {
-    min: {default: 11.8872},
-    max: {default: 11.8872},
+    min: {default: 8.321},
+    max: {default: 8.321},
   },
 
   init() {
@@ -63,7 +63,7 @@ export const tapPlaceComponent = {
     newElement.setAttribute('scale',    '0.0001 0.0001 0.0001')
     newElement.classList.add('cantap')
 
-    const finalScale  = 11.8872 // Increased by 30% from 9.144
+    const finalScale  = 8.321 // Reduced by 30% from 11.8872
 
     // Child holds the GLTF model
     const modelChild = document.createElement('a-entity')

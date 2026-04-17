@@ -34,6 +34,8 @@
     xrextras-loading
     xrextras-runtime-error
     xrextras-realtime-occlusion
+    xrextras-pbr-lighting="hdr: #hdr"
+    reflection="directionalLight: #dirlight"
     renderer="colorManagement:true"
     xrweb="
       allowedDevices: any;
@@ -48,6 +50,7 @@
     <a-assets>
       <img id="groundTex" src="assets/sand.jpg">
       <a-asset-item id="grillModel" src="assets/American outdoor grill.glb"></a-asset-item>
+      <a-asset-item id="hdr" src="assets/san_giuseppe_bridge_1k.hdr"></a-asset-item>
     </a-assets>
 
     <a-camera
@@ -60,6 +63,7 @@
     </a-camera>
 
     <a-entity
+      id="dirlight"
       light="
         type: directional;
         intensity: 0.8;
