@@ -22,6 +22,13 @@ export const tapPlaceComponent = {
     this.modelChild       = null
     this.activeModel      = '#grillModel'
     this.gesturesEnabled  = false   
+    
+    // ── Smoothing Targets (Eliminates Jitter) ──────────────
+    this.targetPos   = new THREE.Vector3()
+    this.targetRotY  = 0
+    this.targetScale = 1
+    this.lerpSpeed   = 0.15  // Lower = Smoother, Higher = Snappier
+    this.isInitialized = false
 
     // Per-model scale normalisation
     this.modelScales = {
@@ -95,10 +102,16 @@ export const tapPlaceComponent = {
     this.hasAnimated     = false
     this.gesturesEnabled = false
 
-    // Enable gestures once animation is done
+    // Enable gestures and sync smoothing targets once animation is done
     const enable = () => {
       if (this.gesturesEnabled) return
       this.gesturesEnabled = true
+      
+      // Initialize targets with the current state to prevent "jump" at start
+      this.targetPos.copy(newElement.object3D.position)
+      this.targetRotY  = newElement.object3D.rotation.y
+      this.targetScale = newElement.object3D.scale.x
+      this.isInitialized = true
     }
     newElement.addEventListener('animationcomplete', enable)
     setTimeout(enable, 1200)
@@ -173,12 +186,12 @@ export const tapPlaceComponent = {
     const ndcY = -((touch.y - rect.top)  / rect.height) * 2 + 1
     this._raycaster.setFromCamera({x: ndcX, y: ndcY}, camera)
     
-    // During drag, we stay on the current height the user set
+    // During drag, we update the target position
     const modelY = entity.object3D.position.y
     this._hitPlane.set(new THREE.Vector3(0, 1, 0), -modelY)
     if (this._raycaster.ray.intersectPlane(this._hitPlane, this._hitPoint)) {
-      entity.object3D.position.x = this._hitPoint.x
-      entity.object3D.position.z = this._hitPoint.z
+      this.targetPos.x = this._hitPoint.x
+      this.targetPos.z = this._hitPoint.z
     }
   },
 
@@ -193,24 +206,23 @@ export const tapPlaceComponent = {
     if (this._prevAngle !== null) {
       // 1. Rotation (Twist)
       const dAngle = angle - this._prevAngle
-      entity.object3D.rotation.y -= dAngle
+      this.targetRotY -= dAngle
 
       // 2. Height Control (Vertical Slide)
       const dCentroidY = centroidY - this._prevCentroidY
       const moveSensitivity = 0.05
-      entity.object3D.position.y -= (dCentroidY * moveSensitivity)
+      this.targetPos.y -= (dCentroidY * moveSensitivity)
 
       // 3. Scaling (Pinch/Spread)
-      // We use the ratio of current spread to previous spread for smooth, drift-free scaling
       const dSpread = spread / this._prevSpread
-      const newScale = entity.object3D.scale.x * dSpread
+      const newScale = this.targetScale * dSpread
       
-      // Safety limits: prevent model from disappearing or getting too large
+      // Safety limits
       const minS = 0.5
       const maxS = 100.0
       
       if (newScale > minS && newScale < maxS) {
-        entity.object3D.scale.multiplyScalar(dSpread)
+        this.targetScale = newScale
       }
     }
 
@@ -220,9 +232,25 @@ export const tapPlaceComponent = {
   },
 
   tick() {
+    // ── Animation Mixer ──────────────────
     if (this._mixer && this._animPlaying) {
       const delta = this._animClock.getDelta()
       this._mixer.update(delta)
+    }
+
+    // ── Stability Smoothing (The Magic) ──
+    if (this.placedEntity && this.isInitialized) {
+      const obj = this.placedEntity.object3D
+      
+      // Smoothly move position
+      obj.position.lerp(this.targetPos, this.lerpSpeed)
+      
+      // Smoothly rotate (Lerp angle)
+      obj.rotation.y += (this.targetRotY - obj.rotation.y) * this.lerpSpeed
+      
+      // Smoothly scale
+      const s = obj.scale.x + (this.targetScale - obj.scale.x) * this.lerpSpeed
+      obj.scale.set(s, s, s)
     }
   },
 
