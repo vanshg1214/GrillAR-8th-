@@ -183,7 +183,14 @@ AFRAME.registerComponent('premium-materials', {
         try {
           const { data, width, height } = parseHDR(buffer)
 
-          const texture = new THREE.DataTexture(data, width, height, THREE.RGBAFormat, THREE.FloatType)
+          // Convert Float32 data to HalfFloat (Uint16) for universal mobile compatibility
+          const halfFloatData = new Uint16Array(data.length)
+          for (let i = 0; i < data.length; i++) {
+            halfFloatData[i] = THREE.DataUtils.toHalfFloat(data[i])
+          }
+
+          // Use HalfFloatType which is fully supported on mobile devices for HDR
+          const texture = new THREE.DataTexture(halfFloatData, width, height, THREE.RGBAFormat, THREE.HalfFloatType)
           texture.mapping = THREE.EquirectangularReflectionMapping
           texture.needsUpdate = true
 
