@@ -3,8 +3,11 @@
 // Drag   : raycast camera→finger→ground plane (model follows finger exactly)
 // Rotate : two-finger angle delta (atan2)
 // Scale  : two-finger spread ratio (multiplicative, no drift)
+// Height : two-finger vertical slide
 //
-// Everything uses native Touch events — zero xrextras gesture dependency.
+// WORLD-SPACE LOCK: The model's position/rotation/scale is ONLY ever modified
+// inside gesture handlers (touchmove). tick() NEVER touches the transform.
+// This guarantees the model stays perfectly fixed in world space between touches.
 
 export const tapPlaceComponent = {
   schema: {
@@ -21,18 +24,7 @@ export const tapPlaceComponent = {
     this.placedEntity     = null
     this.modelChild       = null
     this.activeModel      = '#grillModel'
-    this.gesturesEnabled  = false   
-    
-    // ── Smoothing Targets (Eliminates Jitter) ──────────────
-    this.targetPos   = new THREE.Vector3()
-    this.targetRotY  = 0
-    this.targetScale = 1
-    this.isInitialized = false
-    
-    // Interaction state — model is FROZEN unless fingers are on the screen
-    this._isInteracting = false
-    this._needsSnap     = false   // true when fingers just lifted, triggers one final snap
-    this._lerpFactor    = 0.3     // Responsive smoothing during active touch
+    this.gesturesEnabled  = false
 
     // Per-model scale normalisation
     this.modelScales = {
@@ -72,9 +64,12 @@ export const tapPlaceComponent = {
     newElement.setAttribute('rotation', '0 0 0')
     newElement.setAttribute('visible',  'false')
     newElement.setAttribute('scale',    '0.0001 0.0001 0.0001')
-    newElement.classList.add('cantap')
+    // NOTE: intentionally NOT adding 'cantap' class to placed model.
+    // Only the ground plane needs cantap for initial placement raycasting.
+    // Adding it to the model causes the camera cursor to continuously
+    // raycast against it, which can interfere with world-space locking.
 
-    const finalScale  = 8.321 // Reduced by 30% from 11.8872
+    const finalScale  = 8.321
 
     // Child holds the GLTF model
     const modelChild = document.createElement('a-entity')
@@ -84,7 +79,7 @@ export const tapPlaceComponent = {
     // Normalise and handle entrance
     modelChild.addEventListener('model-loaded', () => {
       this._normalizeModel(modelChild)
-      
+
       if (!this.hasAnimated) {
         this.hasAnimated = true
         newElement.setAttribute('visible', 'true')
@@ -94,18 +89,11 @@ export const tapPlaceComponent = {
           easing:   'easeOutElastic',
           dur:      800,
         })
-        
-        // Exact timing synchronization: wait for THIS animation to finish, 
-        // then initialize the smoothing targets.
+
+        // Enable gestures ONLY after the entrance animation completes
         newElement.addEventListener('animationcomplete', () => {
           if (this.gesturesEnabled) return
           this.gesturesEnabled = true
-          
-          // Lock target state cleanly to animation's final resting place
-          this.targetPos.copy(newElement.object3D.position)
-          this.targetRotY  = newElement.object3D.rotation.y
-          this.targetScale = finalScale 
-          this.isInitialized = true
         }, {once: true})
       }
     })
@@ -116,7 +104,8 @@ export const tapPlaceComponent = {
 
     this.hasPlacedModel  = true
     this.placedEntity    = newElement
-    // Enable gestures once animation is done inside the model-loaded event
+    this.hasAnimated     = false
+    this.gesturesEnabled = false
   },
 
   // ══════════════════════════════════════════════════════════
@@ -138,11 +127,6 @@ export const tapPlaceComponent = {
       this._prevAngle     = null
       this._prevSpread    = null
       this._prevCentroidY = null
-      
-      // Mark as actively interacting so tick() starts smoothing
-      if (this.gesturesEnabled) {
-        this._isInteracting = true
-      }
     }
 
     const onMove = (e) => {
@@ -153,7 +137,7 @@ export const tapPlaceComponent = {
         if (this._touches.has(t.identifier)) {
           const prev = this._touches.get(t.identifier)
           const dist = Math.hypot(t.clientX - prev.x, t.clientY - prev.y)
-          
+
           // ── Tremor Filtering (Deadzone) ──
           // Ignore micro-movements (< 1.5 pixels) to stop jitter from hand shaking
           if (dist > 1.5) {
@@ -182,12 +166,6 @@ export const tapPlaceComponent = {
       this._prevAngle     = null
       this._prevSpread    = null
       this._prevCentroidY = null
-      
-      // All fingers lifted — stop continuous updates, request one final snap
-      if (this._touches.size === 0) {
-        this._isInteracting = false
-        this._needsSnap     = true
-      }
     }
 
     document.addEventListener('touchstart',  onStart, {passive: true})
@@ -196,6 +174,7 @@ export const tapPlaceComponent = {
     document.addEventListener('touchcancel', onEnd,   {passive: true})
   },
 
+  // ── DRAG: directly set world-space position ──────────────
   _drag(touch) {
     const entity = this.placedEntity
     if (!entity) return
@@ -205,16 +184,17 @@ export const tapPlaceComponent = {
     const ndcX =  ((touch.x - rect.left) / rect.width)  * 2 - 1
     const ndcY = -((touch.y - rect.top)  / rect.height) * 2 + 1
     this._raycaster.setFromCamera({x: ndcX, y: ndcY}, camera)
-    
-    // During drag, we update the target position
+
     const modelY = entity.object3D.position.y
     this._hitPlane.set(new THREE.Vector3(0, 1, 0), -modelY)
     if (this._raycaster.ray.intersectPlane(this._hitPlane, this._hitPoint)) {
-      this.targetPos.x = this._hitPoint.x
-      this.targetPos.z = this._hitPoint.z
+      // DIRECT world-space assignment — no targets, no LERP, no tick updates
+      entity.object3D.position.x = this._hitPoint.x
+      entity.object3D.position.z = this._hitPoint.z
     }
   },
 
+  // ── PINCH/ROTATE/LIFT: directly modify transform ─────────
   _pinchRotate(t1, t2) {
     const entity = this.placedEntity
     if (!entity) return
@@ -224,25 +204,25 @@ export const tapPlaceComponent = {
     const centroidY = (t1.y + t2.y) / 2
 
     if (this._prevAngle !== null) {
-      // 1. Rotation (Twist)
+      // 1. Rotation (Twist) — DIRECT
       const dAngle = angle - this._prevAngle
-      this.targetRotY -= dAngle
+      entity.object3D.rotation.y -= dAngle
 
-      // 2. Height Control (Vertical Slide)
+      // 2. Height Control (Vertical Slide) — DIRECT
       const dCentroidY = centroidY - this._prevCentroidY
       const moveSensitivity = 0.05
-      this.targetPos.y -= (dCentroidY * moveSensitivity)
+      entity.object3D.position.y -= (dCentroidY * moveSensitivity)
 
-      // 3. Scaling (Pinch/Spread)
+      // 3. Scaling (Pinch/Spread) — DIRECT
       const dSpread = spread / this._prevSpread
-      const newScale = this.targetScale * dSpread
-      
+      const newScale = entity.object3D.scale.x * dSpread
+
       // Safety limits
       const minS = 0.5
       const maxS = 100.0
-      
+
       if (newScale > minS && newScale < maxS) {
-        this.targetScale = newScale
+        entity.object3D.scale.multiplyScalar(dSpread)
       }
     }
 
@@ -251,33 +231,14 @@ export const tapPlaceComponent = {
     this._prevCentroidY = centroidY
   },
 
+  // ── tick: ONLY handles the animation mixer ───────────────
+  // NEVER modifies position, rotation, or scale.
+  // This is the key to world-space locking.
   tick() {
-    // ── Animation Mixer ──────────────────
     if (this._mixer && this._animPlaying) {
       const delta = this._animClock.getDelta()
       this._mixer.update(delta)
     }
-
-    // ── Model Transform Updates ──────────
-    if (!this.placedEntity || !this.isInitialized) return
-    const obj = this.placedEntity.object3D
-
-    if (this._isInteracting) {
-      // ACTIVE TOUCH: smoothly chase the target values
-      obj.position.lerp(this.targetPos, this._lerpFactor)
-      obj.rotation.y += (this.targetRotY - obj.rotation.y) * this._lerpFactor
-      const s = obj.scale.x + (this.targetScale - obj.scale.x) * this._lerpFactor
-      obj.scale.set(s, s, s)
-
-    } else if (this._needsSnap) {
-      // FINGERS JUST LIFTED: hard-snap to exact target, then freeze completely
-      obj.position.copy(this.targetPos)
-      obj.rotation.y = this.targetRotY
-      obj.scale.set(this.targetScale, this.targetScale, this.targetScale)
-      this._needsSnap = false
-    }
-    // When _isInteracting=false AND _needsSnap=false → we do NOTHING.
-    // The model is completely frozen. No lerp. No updates. Rock solid.
   },
 
   _normalizeModel(entity) {
