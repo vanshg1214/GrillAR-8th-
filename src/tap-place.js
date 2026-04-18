@@ -27,12 +27,12 @@ export const tapPlaceComponent = {
     this.targetPos   = new THREE.Vector3()
     this.targetRotY  = 0
     this.targetScale = 1
-    
-    // Adaptive LERP Settings
-    this.baseLerp    = 0.05  // Extremely stiff/solid when hands are off
-    this.activeLerp  = 0.35  // Very snappy/responsive when interacting
-    this.currentLerp = this.baseLerp 
     this.isInitialized = false
+    
+    // Interaction state — model is FROZEN unless fingers are on the screen
+    this._isInteracting = false
+    this._needsSnap     = false   // true when fingers just lifted, triggers one final snap
+    this._lerpFactor    = 0.3     // Responsive smoothing during active touch
 
     // Per-model scale normalisation
     this.modelScales = {
@@ -138,6 +138,11 @@ export const tapPlaceComponent = {
       this._prevAngle     = null
       this._prevSpread    = null
       this._prevCentroidY = null
+      
+      // Mark as actively interacting so tick() starts smoothing
+      if (this.gesturesEnabled) {
+        this._isInteracting = true
+      }
     }
 
     const onMove = (e) => {
@@ -158,9 +163,6 @@ export const tapPlaceComponent = {
         }
       })
       if (!handled) return
-      
-      // We are actively interacting, increase smoothing speed to be highly responsive
-      this.currentLerp = this.activeLerp
 
       const pts = Array.from(this._touches.values())
 
@@ -180,6 +182,12 @@ export const tapPlaceComponent = {
       this._prevAngle     = null
       this._prevSpread    = null
       this._prevCentroidY = null
+      
+      // All fingers lifted — stop continuous updates, request one final snap
+      if (this._touches.size === 0) {
+        this._isInteracting = false
+        this._needsSnap     = true
+      }
     }
 
     document.addEventListener('touchstart',  onStart, {passive: true})
@@ -250,23 +258,26 @@ export const tapPlaceComponent = {
       this._mixer.update(delta)
     }
 
-    // ── Stability Smoothing (The Magic) ──
-    if (this.placedEntity && this.isInitialized) {
-      const obj = this.placedEntity.object3D
-      
-      // Decay LERP speed back to solid base over time when user stops moving fingers
-      this.currentLerp = THREE.MathUtils.lerp(this.currentLerp, this.baseLerp, 0.04)
+    // ── Model Transform Updates ──────────
+    if (!this.placedEntity || !this.isInitialized) return
+    const obj = this.placedEntity.object3D
 
-      // Smoothly move position using dynamic damping
-      obj.position.lerp(this.targetPos, this.currentLerp)
-      
-      // Smoothly rotate (Lerp angle)
-      obj.rotation.y += (this.targetRotY - obj.rotation.y) * this.currentLerp
-      
-      // Smoothly scale
-      const s = obj.scale.x + (this.targetScale - obj.scale.x) * this.currentLerp
+    if (this._isInteracting) {
+      // ACTIVE TOUCH: smoothly chase the target values
+      obj.position.lerp(this.targetPos, this._lerpFactor)
+      obj.rotation.y += (this.targetRotY - obj.rotation.y) * this._lerpFactor
+      const s = obj.scale.x + (this.targetScale - obj.scale.x) * this._lerpFactor
       obj.scale.set(s, s, s)
+
+    } else if (this._needsSnap) {
+      // FINGERS JUST LIFTED: hard-snap to exact target, then freeze completely
+      obj.position.copy(this.targetPos)
+      obj.rotation.y = this.targetRotY
+      obj.scale.set(this.targetScale, this.targetScale, this.targetScale)
+      this._needsSnap = false
     }
+    // When _isInteracting=false AND _needsSnap=false → we do NOTHING.
+    // The model is completely frozen. No lerp. No updates. Rock solid.
   },
 
   _normalizeModel(entity) {
