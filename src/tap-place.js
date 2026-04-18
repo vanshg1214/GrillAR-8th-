@@ -27,7 +27,11 @@ export const tapPlaceComponent = {
     this.targetPos   = new THREE.Vector3()
     this.targetRotY  = 0
     this.targetScale = 1
-    this.lerpSpeed   = 0.15  // Lower = Smoother, Higher = Snappier
+    
+    // Adaptive LERP Settings
+    this.baseLerp    = 0.05  // Extremely stiff/solid when hands are off
+    this.activeLerp  = 0.35  // Very snappy/responsive when interacting
+    this.currentLerp = this.baseLerp 
     this.isInitialized = false
 
     // Per-model scale normalisation
@@ -144,11 +148,21 @@ export const tapPlaceComponent = {
       let handled = false
       Array.from(e.changedTouches).forEach(t => {
         if (this._touches.has(t.identifier)) {
-          this._touches.set(t.identifier, {x: t.clientX, y: t.clientY})
-          handled = true
+          const prev = this._touches.get(t.identifier)
+          const dist = Math.hypot(t.clientX - prev.x, t.clientY - prev.y)
+          
+          // ── Tremor Filtering (Deadzone) ──
+          // Ignore micro-movements (< 1.5 pixels) to stop jitter from hand shaking
+          if (dist > 1.5) {
+            this._touches.set(t.identifier, {x: t.clientX, y: t.clientY})
+            handled = true
+          }
         }
       })
       if (!handled) return
+      
+      // We are actively interacting, increase smoothing speed to be highly responsive
+      this.currentLerp = this.activeLerp
 
       const pts = Array.from(this._touches.values())
 
@@ -242,14 +256,17 @@ export const tapPlaceComponent = {
     if (this.placedEntity && this.isInitialized) {
       const obj = this.placedEntity.object3D
       
-      // Smoothly move position
-      obj.position.lerp(this.targetPos, this.lerpSpeed)
+      // Decay LERP speed back to solid base over time when user stops moving fingers
+      this.currentLerp = THREE.MathUtils.lerp(this.currentLerp, this.baseLerp, 0.04)
+
+      // Smoothly move position using dynamic damping
+      obj.position.lerp(this.targetPos, this.currentLerp)
       
       // Smoothly rotate (Lerp angle)
-      obj.rotation.y += (this.targetRotY - obj.rotation.y) * this.lerpSpeed
+      obj.rotation.y += (this.targetRotY - obj.rotation.y) * this.currentLerp
       
       // Smoothly scale
-      const s = obj.scale.x + (this.targetScale - obj.scale.x) * this.lerpSpeed
+      const s = obj.scale.x + (this.targetScale - obj.scale.x) * this.currentLerp
       obj.scale.set(s, s, s)
     }
   },
