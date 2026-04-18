@@ -94,6 +94,19 @@ export const tapPlaceComponent = {
           easing:   'easeOutElastic',
           dur:      800,
         })
+        
+        // Exact timing synchronization: wait for THIS animation to finish, 
+        // then initialize the smoothing targets.
+        newElement.addEventListener('animationcomplete', () => {
+          if (this.gesturesEnabled) return
+          this.gesturesEnabled = true
+          
+          // Lock target state cleanly to animation's final resting place
+          this.targetPos.copy(newElement.object3D.position)
+          this.targetRotY  = newElement.object3D.rotation.y
+          this.targetScale = finalScale 
+          this.isInitialized = true
+        }, {once: true})
       }
     })
 
@@ -103,22 +116,7 @@ export const tapPlaceComponent = {
 
     this.hasPlacedModel  = true
     this.placedEntity    = newElement
-    this.hasAnimated     = false
-    this.gesturesEnabled = false
-
-    // Enable gestures and sync smoothing targets once animation is done
-    const enable = () => {
-      if (this.gesturesEnabled) return
-      this.gesturesEnabled = true
-      
-      // Initialize targets with the current state to prevent "jump" at start
-      this.targetPos.copy(newElement.object3D.position)
-      this.targetRotY  = newElement.object3D.rotation.y
-      this.targetScale = newElement.object3D.scale.x
-      this.isInitialized = true
-    }
-    newElement.addEventListener('animationcomplete', enable)
-    setTimeout(enable, 1200)
+    // Enable gestures once animation is done inside the model-loaded event
   },
 
   // ══════════════════════════════════════════════════════════
