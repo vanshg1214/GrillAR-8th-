@@ -10,10 +10,9 @@ export const tapPlaceComponent = {
     this.placedEntity = null
     this.hasPlacedModel = false
     
-    // Scale config: Real outdoor grills are usually around 1.5 meters (5 feet).
-    // The normalizer makes the base size exactly 1 meter, so setting this 
-    // to 1.5 scales it to a highly visible, realistic life size.
-    const finalScale = 1.5 
+    // Scale config: Setting this to 1.0 makes the grill exactly 1 meter (3.3 feet) wide.
+    // This is a realistic size for an outdoor grill and highly stable in AR.
+    const finalScale = 1.0 
 
     // Listeners for gestures
     this._touches = new Map()

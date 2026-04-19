@@ -28,18 +28,17 @@
   <!-- Simplified UI: removed filter tray -->
 
   <a-scene
-    xrextras-gesture-detector
     tap-place
     landing-page
     xrextras-loading
     xrextras-runtime-error
-    xrextras-realtime-occlusion
     premium-materials="hdr: assets/san_giuseppe_bridge_1k.hdr; exposure: 1.35"
     renderer="colorManagement:true; physicallyCorrectLights: true"
     xrweb="
       allowedDevices: any;
       enableDepth: true;
       scale: absolute;
+      disableWorldTracking: false;
       defaultEnvironmentFogIntensity: 0.3; 
       defaultEnvironmentFloorTexture: #groundTex; 
       defaultEnvironmentFloorColor: #FFF;
@@ -62,7 +61,7 @@
         rayOrigin: mouse;">
     </a-camera>
 
-    <!-- Main directional light (sun) — high intensity for steel highlights -->
+    <!-- Main directional light (sun) -->
     <a-entity
       id="dirlight"
       light="
@@ -75,14 +74,13 @@
         shadowCameraTop: 40;
         shadowCameraBottom: -40;
         shadowCameraRight: 40;
-        shadowCameraLeft: -40;
-        target: #camera"
+        shadowCameraLeft: -40"
       xrextras-attach="target: camera; offset: 8 15 4"
       position="1 4.3 2.5"
       shadow>
     </a-entity>
 
-    <!-- Secondary fill light from opposite side to reduce harsh shadows -->
+    <!-- Secondary fill light -->
     <a-entity
       light="
         type: directional;
@@ -92,25 +90,17 @@
       position="-5 6 -3">
     </a-entity>
 
-    <!-- Hemisphere light for natural outdoor-style ambient -->
-    <a-light
-      type="hemisphere"
-      color="#87CEEB"
-      groundColor="#F5E6D3"
-      intensity="0.6">
-    </a-light>
-
-    <!-- Soft ambient fill -->
-    <a-light type="ambient" intensity="0.3" color="#FFFFFF"></a-light>
-
-    <a-box
+    <!-- Floor detection plane - Exactly at 0 0 0 for Simulator compatibility -->
+    <a-plane
       id="ground"
       class="cantap"
-      scale="1000 2 1000"
-      position="0 -0.99 0"
+      rotation="-90 0 0"
+      width="1000"
+      height="1000"
+      position="0 0 0"
       material="shader: shadow; transparent: true; opacity: 0.4"
       shadow>
-    </a-box>
+    </a-plane>
   </a-scene>
 </body>
 </html>
