@@ -10,9 +10,9 @@ export const tapPlaceComponent = {
     this.placedEntity = null
     this.hasPlacedModel = false
     
-    // Scale config: Setting this to 1.0 makes the grill exactly 1 meter (3.3 feet) wide.
-    // This is a realistic size for an outdoor grill and highly stable in AR.
-    const finalScale = 1.0 
+    // Scale config: Setting this to 0.7 makes it 30% smaller than before.
+    // Fixed size: We will now ignore manual scaling gestures to keep this size constant.
+    const finalScale = 0.7 
 
     // Listeners for gestures
     this._touches = new Map()
@@ -200,13 +200,6 @@ export const tapPlaceComponent = {
       // Vertical Slide Height
       const dCentroidY = centroidY - this._prevCentroidY
       this.placedEntity.object3D.position.y -= dCentroidY * 0.05
-
-      // Pinch Scale
-      const dSpread = spread / this._prevSpread
-      const newScale = this.placedEntity.object3D.scale.x * dSpread
-      if (newScale > 0.1 && newScale < 100.0) {
-        this.placedEntity.object3D.scale.multiplyScalar(dSpread)
-      }
     }
 
     this._prevAngle = angle
