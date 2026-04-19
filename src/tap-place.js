@@ -199,7 +199,7 @@ export const tapPlaceComponent = {
 
       // Vertical Slide Height
       const dCentroidY = centroidY - this._prevCentroidY
-      this.placedEntity.object3D.position.y -= dCentroidY * 0.05
+      this.placedEntity.object3D.position.y -= dCentroidY * 0.01
     }
 
     this._prevAngle = angle
