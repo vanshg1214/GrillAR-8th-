@@ -113,7 +113,9 @@ export const tapPlaceComponent = {
     }
 
     entity.object3D.updateMatrixWorld(true)
-    entity.object3D.position.y = (-localBottomY * s)
+    // Shift the child mesh locally so its lowest point rests exactly on the floor, 
+    // without overriding the entity's world placement coordinate.
+    obj.position.y = (-localBottomY * s)
     entity.object3D.visible = true
   },
 
