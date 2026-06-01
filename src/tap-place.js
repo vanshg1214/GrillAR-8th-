@@ -10,6 +10,7 @@ export const tapPlaceComponent = {
     this.placedEntity = null
     this.hasPlacedModel = false
     this.isDragging = false
+    this._floorY = 0  // Y coordinate of the floor where the model was placed
     
     // Scale config: Setting this to 0.7 makes it 30% smaller than before.
     // Fixed size: We will now ignore manual scaling gestures to keep this size constant.
@@ -51,6 +52,7 @@ export const tapPlaceComponent = {
 
       newElement.addEventListener('model-loaded', () => {
         this.placedEntity = newElement
+        this._floorY = touchPoint.y  // Lock to the floor Y where user tapped
         
         // Normalize model to be exactly 1x1x1 meters before scaling
         this._normalizeModel(newElement)
@@ -78,45 +80,41 @@ export const tapPlaceComponent = {
       return
     }
 
-    const backups = []
-    let curr = entity.object3D
-    let root = curr
-    while (curr) {
-      backups.push({obj: curr, scale: curr.scale.clone(), rotation: curr.rotation.clone()})
-      curr.scale.set(1, 1, 1)
-      curr.rotation.set(0, 0, 0)
-      root = curr
-      curr = curr.parent
-    }
+    // Step 1: Reset any transforms baked into the mesh by the exporter
+    obj.position.set(0, 0, 0)
+    obj.rotation.set(0, 0, 0)
+    obj.scale.set(1, 1, 1)
+    obj.updateMatrixWorld(true)
 
-    root.updateMatrixWorld(true)
-    const box = new THREE.Box3()
-    obj.traverse((child) => { if (child.isMesh) box.expandByObject(child) })
-    if (box.isEmpty()) box.setFromObject(obj)
+    // Step 2: Compute the raw bounding box of the model in its own local space
+    const box = new THREE.Box3().setFromObject(obj)
+    if (box.isEmpty()) {
+      entity.object3D.visible = true
+      return
+    }
 
     const size = new THREE.Vector3()
     box.getSize(size)
-    const target = new THREE.Vector3()
-    obj.getWorldPosition(target)
-    const localBottomY = box.min.y - target.y
+    const center = new THREE.Vector3()
+    box.getCenter(center)
 
-    for (const item of backups) {
-      item.obj.scale.copy(item.scale)
-      item.obj.rotation.copy(item.rotation)
-    }
-
+    // Step 3: Normalize the model so its largest dimension equals 1 meter
     const maxDim = Math.max(size.x, size.y, size.z)
-    let s = 1.0
-    if (maxDim > 0) {
-      s = 1.0 / maxDim
-      obj.scale.set(s, s, s)
-    }
+    const s = maxDim > 0 ? (1.0 / maxDim) : 1.0
+    obj.scale.set(s, s, s)
 
-    entity.object3D.updateMatrixWorld(true)
-    // Shift the child mesh locally so its lowest point rests exactly on the floor, 
-    // without overriding the entity's world placement coordinate.
-    obj.position.y = (-localBottomY * s)
+    // Step 4: Shift the mesh so its bottom face sits exactly at Y=0
+    // After scaling, the bottom of the box is at (box.min.y * s).
+    // We need to shift the mesh up by that amount so the bottom is at Y=0.
+    obj.position.set(
+      -center.x * s,   // Center horizontally
+      -box.min.y * s,   // Sit on the floor (Y=0)
+      -center.z * s     // Center depth-wise
+    )
+
     entity.object3D.visible = true
+    console.log('[tap-place] Model normalized — scale:', s.toFixed(4),
+      'floor offset:', (-box.min.y * s).toFixed(4))
   },
 
   _initGestures() {
@@ -197,21 +195,23 @@ export const tapPlaceComponent = {
     const ndcY = -((touch.y - rect.top) / rect.height) * 2 + 1
     this._raycaster.setFromCamera({x: ndcX, y: ndcY}, camera)
 
-    // Raycast against flat horizontal plane at model's current Y height
-    const modelY = this.placedEntity.object3D.position.y
-    this._hitPlane.set(new THREE.Vector3(0, 1, 0), -modelY)
+    // Raycast against the FIXED floor plane (Y = floorY), never the model's current Y
+    this._hitPlane.set(new THREE.Vector3(0, 1, 0), -this._floorY)
     
     if (this._raycaster.ray.intersectPlane(this._hitPlane, this._hitPoint)) {
       const currentPos = this.placedEntity.object3D.position
-      const dist = currentPos.distanceTo(this._hitPoint)
+      const dx = this._hitPoint.x - currentPos.x
+      const dz = this._hitPoint.z - currentPos.z
+      const dist = Math.sqrt(dx * dx + dz * dz)
 
       // Only move if the shift is bigger than 5mm (Deadzone)
       if (dist > 0.005) {
-        currentPos.x += (this._hitPoint.x - currentPos.x) * 0.4
-        currentPos.z += (this._hitPoint.z - currentPos.z) * 0.4
+        currentPos.x += dx * 0.4
+        currentPos.z += dz * 0.4
       }
 
-      // Vertical Lock (Anti-Wobble)
+      // Hard-lock Y to the floor and prevent any tilt
+      currentPos.y = this._floorY
       this.placedEntity.object3D.rotation.x = 0
       this.placedEntity.object3D.rotation.z = 0
     }
@@ -221,25 +221,18 @@ export const tapPlaceComponent = {
     if (!this.placedEntity) return
 
     const angle = Math.atan2(t2.y - t1.y, t2.x - t1.x)
-    const spread = Math.hypot(t2.x - t1.x, t2.y - t1.y)
-    const centroidY = (t1.y + t2.y) / 2
 
     if (this._prevAngle !== null) {
-      // Twist Rotation
+      // Twist Rotation only — no vertical slide to keep grill on the floor
       const dAngle = angle - this._prevAngle
       this.placedEntity.object3D.rotation.y -= dAngle
 
-      // Vertical Slide Height
-      const dCentroidY = centroidY - this._prevCentroidY
-      this.placedEntity.object3D.position.y -= dCentroidY * 0.01
-
-      // Anti-Wobble Vertical Lock
+      // Hard-lock to floor and prevent any tilt
+      this.placedEntity.object3D.position.y = this._floorY
       this.placedEntity.object3D.rotation.x = 0
       this.placedEntity.object3D.rotation.z = 0
     }
 
     this._prevAngle = angle
-    this._prevSpread = spread
-    this._prevCentroidY = centroidY
   }
 }
