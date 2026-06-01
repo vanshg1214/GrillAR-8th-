@@ -9,6 +9,7 @@ export const tapPlaceComponent = {
     this.activeModel = '#grillModel'
     this.placedEntity = null
     this.hasPlacedModel = false
+    this.isDragging = false
     
     // Scale config: Setting this to 0.7 makes it 30% smaller than before.
     // Fixed size: We will now ignore manual scaling gestures to keep this size constant.
@@ -108,7 +109,7 @@ export const tapPlaceComponent = {
     let s = 1.0
     if (maxDim > 0) {
       s = 1.0 / maxDim
-      entity.object3D.scale.set(s, s, s)
+      obj.scale.set(s, s, s)
     }
 
     entity.object3D.updateMatrixWorld(true)
@@ -126,6 +127,24 @@ export const tapPlaceComponent = {
       this._prevAngle = null
       this._prevSpread = null
       this._prevCentroidY = null
+
+      if (this.placedEntity && e.touches.length === 1) {
+        const touch = e.touches[0]
+        const camera = this.el.sceneEl.camera
+        const canvas = this.el.sceneEl.canvas
+        if (camera && canvas) {
+          const rect = canvas.getBoundingClientRect()
+          const ndcX = ((touch.clientX - rect.left) / rect.width) * 2 - 1
+          const ndcY = -((touch.clientY - rect.top) / rect.height) * 2 + 1
+          this._raycaster.setFromCamera({x: ndcX, y: ndcY}, camera)
+          const intersects = this._raycaster.intersectObject(this.placedEntity.object3D, true)
+          this.isDragging = intersects.length > 0
+        } else {
+          this.isDragging = false
+        }
+      } else if (e.touches.length >= 2) {
+        this.isDragging = true
+      }
     }
 
     const onMove = (e) => {
@@ -142,10 +161,10 @@ export const tapPlaceComponent = {
 
       const pts = Array.from(this._touches.values())
 
-      if (pts.length === 1) {
+      if (pts.length === 1 && this.isDragging) {
         this._drag(pts[0])
         e.preventDefault()
-      } else if (pts.length >= 2) {
+      } else if (pts.length >= 2 && this.isDragging) {
         this._pinchRotate(pts[0], pts[1])
         e.preventDefault()
       }
@@ -158,6 +177,9 @@ export const tapPlaceComponent = {
       this._prevAngle = null
       this._prevSpread = null
       this._prevCentroidY = null
+      if (this._touches.size === 0) {
+        this.isDragging = false
+      }
     }
 
     document.addEventListener('touchstart', onStart, {passive: true})
@@ -180,8 +202,18 @@ export const tapPlaceComponent = {
     this._hitPlane.set(new THREE.Vector3(0, 1, 0), -modelY)
     
     if (this._raycaster.ray.intersectPlane(this._hitPlane, this._hitPoint)) {
-      this.placedEntity.object3D.position.x = this._hitPoint.x
-      this.placedEntity.object3D.position.z = this._hitPoint.z
+      const currentPos = this.placedEntity.object3D.position
+      const dist = currentPos.distanceTo(this._hitPoint)
+
+      // Only move if the shift is bigger than 5mm (Deadzone)
+      if (dist > 0.005) {
+        currentPos.x += (this._hitPoint.x - currentPos.x) * 0.4
+        currentPos.z += (this._hitPoint.z - currentPos.z) * 0.4
+      }
+
+      // Vertical Lock (Anti-Wobble)
+      this.placedEntity.object3D.rotation.x = 0
+      this.placedEntity.object3D.rotation.z = 0
     }
   },
 
@@ -200,6 +232,10 @@ export const tapPlaceComponent = {
       // Vertical Slide Height
       const dCentroidY = centroidY - this._prevCentroidY
       this.placedEntity.object3D.position.y -= dCentroidY * 0.01
+
+      // Anti-Wobble Vertical Lock
+      this.placedEntity.object3D.rotation.x = 0
+      this.placedEntity.object3D.rotation.z = 0
     }
 
     this._prevAngle = angle

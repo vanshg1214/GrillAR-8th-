@@ -16,6 +16,7 @@
   <meta name="8thwall:renderer" content="aframe:1.5.0"/>
   <meta name="8thwall:package" content="@8thwall.xrextras"/>
   <meta name="8thwall:package" content="@8thwall.landing-page"/>
+  <meta name="8thwall:package" content="@8thwall.coaching-overlay"/>
 </head>
 
 <body>
@@ -32,11 +33,12 @@
     landing-page
     xrextras-loading
     xrextras-runtime-error
+    coaching-overlay
     premium-materials="hdr: assets/san_giuseppe_bridge_1k.hdr; exposure: 1.35"
     renderer="colorManagement:true; physicallyCorrectLights: true"
     xrweb="
       allowedDevices: any;
-      enableDepth: true;
+      enableDepth: false;
       scale: absolute;
       disableWorldTracking: false;
       defaultEnvironmentFogIntensity: 0.3; 
