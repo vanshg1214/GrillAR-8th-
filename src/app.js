@@ -298,6 +298,7 @@ AFRAME.registerComponent('premium-materials', {
       // on the model to massively improve mobile GPU performance
       child.castShadow = true
       child.receiveShadow = false
+      child.frustumCulled = false
     })
 
     console.log('[premium-materials] Model materials enhanced')
