@@ -84,10 +84,20 @@ export const tapPlaceComponent = {
     obj.position.set(0, 0, 0)
     obj.rotation.set(0, 0, 0)
     obj.scale.set(1, 1, 1)
+    
+    // Temporarily detach from parent to compute a pure local bounding box
+    // This prevents the model from shifting away from the user's tap point
+    const parent = obj.parent
+    obj.parent = null
     obj.updateMatrixWorld(true)
 
     // Step 2: Compute the raw bounding box of the model in its own local space
     const box = new THREE.Box3().setFromObject(obj)
+    
+    // Reattach to parent
+    obj.parent = parent
+    obj.updateMatrixWorld(true)
+
     if (box.isEmpty()) {
       entity.object3D.visible = true
       return
@@ -103,13 +113,11 @@ export const tapPlaceComponent = {
     const s = maxDim > 0 ? (1.0 / maxDim) : 1.0
     obj.scale.set(s, s, s)
 
-    // Step 4: Shift the mesh so its bottom face sits exactly at Y=0
-    // After scaling, the bottom of the box is at (box.min.y * s).
-    // We need to shift the mesh up by that amount so the bottom is at Y=0.
+    // Step 4: Shift the mesh locally so it sits perfectly on the floor and is centered
     obj.position.set(
-      -center.x * s,   // Center horizontally
-      -box.min.y * s,   // Sit on the floor (Y=0)
-      -center.z * s     // Center depth-wise
+      -center.x * s,    // Center horizontally relative to tap point
+      -box.min.y * s,   // Sit exactly on the floor (Y=0 offset)
+      -center.z * s     // Center depth-wise relative to tap point
     )
 
     entity.object3D.visible = true
