@@ -14,7 +14,7 @@ export const tapPlaceComponent = {
     
     // Scale config: Setting this to 0.7 makes it 30% smaller than before.
     // Fixed size: We will now ignore manual scaling gestures to keep this size constant.
-    const finalScale = 0.7 
+    const finalScale = 5.6 
 
     // Listeners for gestures
     this._touches = new Map()
