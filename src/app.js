@@ -294,9 +294,10 @@ AFRAME.registerComponent('premium-materials', {
         }
       })
 
-      // Enable better shadow reception
+      // Enable shadow casting for the ground plane, but disable self-shadowing 
+      // on the model to massively improve mobile GPU performance
       child.castShadow = true
-      child.receiveShadow = true
+      child.receiveShadow = false
     })
 
     console.log('[premium-materials] Model materials enhanced')
