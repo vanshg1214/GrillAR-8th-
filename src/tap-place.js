@@ -30,7 +30,7 @@ export const tapPlaceComponent = {
       if (this.hasPlacedModel) return
       this.hasPlacedModel = true
 
-      if (prompt) prompt.style.display = 'none'
+      if (prompt) prompt.classList.add('fade-out')
 
       // Create new entity for the new object
       const newElement = document.createElement('a-entity')

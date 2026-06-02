@@ -11,6 +11,7 @@
 }
 
 #promptText {
+  transition: opacity 0.4s ease-out;
   font-size: 1.25em;
   font-weight: 600;
   letter-spacing: 0.01em;
@@ -19,6 +20,10 @@
   left: 50%;
   transform: translateX(-50%);
   white-space: nowrap;
+}
+
+.fade-out {
+  opacity: 0;
 }
 
 /* ── Hide 8th Wall branding ── */
